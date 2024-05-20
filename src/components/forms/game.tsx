@@ -6,7 +6,6 @@ import {
   type SubmitHandler,
   useForm,
 } from "react-hook-form";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Form,
@@ -18,10 +17,17 @@ import {
 } from "../ui/form";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
+import { GameType, gameSchema } from "~/schemas/game";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import type { z } from "zod";
 
-const schema = z.object({
-  name: z.string().min(1),
-});
+const schema = gameSchema.omit({ id: true });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -65,6 +71,35 @@ function GameForm(props: GameFormProps) {
                 <FormControl>
                   <Input {...field} autoComplete="off" />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
+        />
+
+        <FormField
+          control={form.control}
+          name="type"
+          render={({ field }) => {
+            return (
+              <FormItem>
+                <FormLabel>Type</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a game type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value={GameType.Jeopardy}>Jeopardy!</SelectItem>
+                    <SelectItem value={GameType.WheelOfFortune}>
+                      Wheel Of Fortune
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             );

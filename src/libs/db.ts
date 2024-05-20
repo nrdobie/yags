@@ -7,15 +7,25 @@ class YagsDatabase extends Dexie {
   constructor() {
     super("YagsDatabase");
 
-    this.version(1).stores({
-      games: "&id, name",
-    });
+    this.generateDb();
   }
 
   async exportData() {
     return {
       games: await this.games.toArray(),
     };
+  }
+
+  async reset() {
+    await this.delete();
+    this.generateDb();
+    await this.open();
+  }
+
+  private generateDb() {
+    this.version(1).stores({
+      games: "&id, name",
+    });
   }
 }
 

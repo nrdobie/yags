@@ -23,7 +23,15 @@ function RootLayout() {
           <Link to="/" className="text-xl font-bold">
             YAGS
           </Link>
-          <Button asChild $variant="ghost">
+          <Button asChild $variant="ghost" $size="sm">
+            <Link
+              to="/games/create"
+              className="[&.active]:font-bold [&.active]:text-primary"
+            >
+              Create Game
+            </Link>
+          </Button>
+          <Button asChild $variant="ghost" $size="sm">
             <Link
               to="/about"
               className="[&.active]:font-bold [&.active]:text-primary"
@@ -31,7 +39,7 @@ function RootLayout() {
               About
             </Link>
           </Button>
-          <Button asChild $variant="ghost">
+          <Button asChild $variant="ghost" $size="sm">
             <Link
               to="/settings"
               className="[&.active]:font-bold [&.active]:text-primary"
