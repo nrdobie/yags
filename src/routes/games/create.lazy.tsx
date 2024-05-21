@@ -2,8 +2,9 @@ import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { GameForm, type GameFormOnSubmit } from "~/components/forms/game";
 import { createId } from "@paralleldrive/cuid2";
-import type { Game } from "~/schemas/game";
+import { GameType, type Game } from "~/schemas/game";
 import { db } from "~/libs/db";
+import { makeBlankJeopardyGame } from "~/schemas/games/jeopardy";
 
 export const Route = createLazyFileRoute("/games/create")({
   component: CreateGamePage,
@@ -14,18 +15,26 @@ function CreateGamePage() {
 
   const onSubmit = useCallback<GameFormOnSubmit>(
     async (values) => {
-      const data: Game = {
+      let blankGameData = {};
+      switch (values.type) {
+        case GameType.Jeopardy:
+          blankGameData = makeBlankJeopardyGame();
+          break;
+      }
+
+      const game: Game = {
         id: createId(),
+        data: blankGameData,
         ...values,
       };
 
-      console.log(data);
+      console.log(game);
 
-      await db.games.add(data);
+      await db.games.add(game);
 
       navigate({
         to: "/games/$gameId",
-        params: { gameId: data.id },
+        params: { gameId: game.id },
       });
     },
     [navigate],

@@ -9,6 +9,7 @@ const gameSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   type: z.nativeEnum(GameType),
+  data: z.any().optional().nullable(),
   lastModified: z.date().optional().default(new Date()),
 });
 

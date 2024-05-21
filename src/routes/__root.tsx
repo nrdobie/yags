@@ -17,7 +17,7 @@ function RootLayout() {
   }, [isDarkMode]);
 
   return (
-    <div className="grid grid-rows-[auto_1fr_auto] gap-8">
+    <div className="grid grid-rows-[auto_1fr_auto] gap-8" id="navigation-top">
       <header className="border-b border-b-border py-4">
         <div className="flex gap-2 items-center container">
           <Link to="/" className="text-xl font-bold">

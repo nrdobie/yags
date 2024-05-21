@@ -72,7 +72,15 @@
     @apply border-border;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground;
+  }
+
+  :target {
+    scroll-margin-top: theme('spacing.8');
   }
 }

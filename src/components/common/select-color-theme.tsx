@@ -32,9 +32,10 @@ function SelectColorTheme() {
       <DropdownMenuTrigger asChild>
         <Button $variant="ghost" $size="icon">
           <FontAwesomeIcon icon={icon} fixedWidth />
+          <span className="sr-only">Color Scheme</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent collisionPadding={8} className="w-36">
+      <DropdownMenuContent className="w-36">
         <DropdownMenuLabel>Color Theme</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuRadioGroup
