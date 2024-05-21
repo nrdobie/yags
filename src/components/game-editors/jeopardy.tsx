@@ -3,37 +3,44 @@ import {
   type SubmitErrorHandler,
   type SubmitHandler,
   useForm,
-  type FieldName,
   useFormContext,
   useFieldArray,
 } from "react-hook-form";
 import { type Jeopardy, jeopardySchema } from "~/schemas/games/jeopardy";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "../ui/form";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { Button } from "../ui/button";
 import { createId } from "@paralleldrive/cuid2";
-import { getNextSortIndex } from "~/libs/get-next-sort-index";
 import { Input } from "../ui/input";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faChevronDown,
-  faChevronUp,
-  faEllipsisV,
-  faEye,
-  faEyeSlash,
-  faGripVertical,
-  faShuffle,
-  faTrash,
-} from "@fortawesome/free-solid-svg-icons";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { faEllipsisV, faGripVertical } from "@fortawesome/free-solid-svg-icons";
 import { Textarea } from "../ui/textarea";
-import { Link } from "@tanstack/react-router";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import {
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  restrictToParentElement,
+  restrictToVerticalAxis,
+} from "@dnd-kit/modifiers";
 
 interface JeopardyGameEditorProps {
   game: Jeopardy;
@@ -195,8 +202,6 @@ interface JeopardyCategoryEditorProps {
 function JeopardyCategoryEditor(props: JeopardyCategoryEditorProps) {
   const { control, watch } = useFormContext<Jeopardy>();
 
-  const [visibility, setVisibility] = useState<boolean>(true);
-
   const fieldArray = useFieldArray({
     control,
     name: `${props.name}.questions`,
@@ -212,6 +217,35 @@ function JeopardyCategoryEditor(props: JeopardyCategoryEditorProps) {
         answer: "",
       }),
     [fieldArray.append],
+  );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const onDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+
+      if (over && active.id !== over.id) {
+        const activeIndex = fieldArray.fields.findIndex(
+          (field) => field.id === active.id,
+        );
+        const overIndex = fieldArray.fields.findIndex(
+          (field) => field.id === over.id,
+        );
+
+        if (activeIndex === -1 || overIndex === -1) {
+          return;
+        }
+
+        fieldArray.move(activeIndex, overIndex);
+      }
+    },
+    [fieldArray.fields, fieldArray.move],
   );
 
   return (
@@ -254,26 +288,36 @@ function JeopardyCategoryEditor(props: JeopardyCategoryEditorProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </legend>
-      {visibility ? (
-        <>
+      <DndContext
+        sensors={sensors}
+        modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+        collisionDetection={closestCenter}
+        onDragEnd={onDragEnd}
+      >
+        <SortableContext
+          items={fieldArray.fields.map((field) => field.id)}
+          strategy={verticalListSortingStrategy}
+        >
           {fieldArray.fields.map((field, index) => (
             <JeopardyCategoryQuestionEditor
               key={field.id}
+              id={field.id}
               sortIndex={index}
               name={`${props.name}.questions.${index}`}
               onDeleteQuestion={fieldArray.remove.bind(fieldArray, index)}
             />
           ))}
-          <Button $variant="outline" onClick={addQuestion} type="button">
-            Add Question
-          </Button>
-        </>
-      ) : null}
+        </SortableContext>
+      </DndContext>
+      <Button $variant="outline" onClick={addQuestion} type="button">
+        Add Question
+      </Button>
     </fieldset>
   );
 }
 
 interface JeopardyCategoryQuestionEditorProps {
+  id: string;
   sortIndex: number;
   name: `${"roundOne" | "roundTwo"}.categories.${number}.questions.${number}`;
   onDeleteQuestion: () => void;
@@ -309,12 +353,39 @@ function JeopardyCategoryQuestionEditor(
     [props.name, props.sortIndex],
   );
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+  } satisfies React.CSSProperties;
+
   return (
-    <fieldset className="border border-border p-4 pt-0 rounded-lg space-y-4 relative bg-background">
+    <fieldset
+      ref={setNodeRef}
+      className="border border-border p-4 pt-0 rounded-lg space-y-4 relative bg-background"
+      {...attributes}
+      style={style}
+    >
       <legend className="flex items-stretch bg-background h-10">
-        <span className="bg-muted w-10 aspect-square grid place-content-center border border-border rounded-l text-muted-foreground cursor-grab active:cursor-grabbing">
+        <Button
+          type="button"
+          ref={setActivatorNodeRef}
+          $variant="secondary"
+          className="rounded-r-none cursor-grab active:cursor-grabbing"
+          {...listeners}
+        >
           <FontAwesomeIcon icon={faGripVertical} />
-        </span>
+        </Button>
         <span className="px-4 border border-l-0 border-border grid place-content-center">
           {prizeAmount} Question
         </span>
