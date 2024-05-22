@@ -43,8 +43,15 @@ import {
 } from "@dnd-kit/modifiers";
 import { db } from "~/libs/db";
 import { JeopardyClue } from "../game-runner/jeopardy/clue";
-import { Dialog, DialogContent, DialogDescription } from "../ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 import { JeopardyCategory } from "../game-runner/jeopardy/category";
+import { Label } from "../ui/label";
 
 interface JeopardyGameEditorProps {
   gameId: string;
@@ -174,7 +181,7 @@ interface JeopardyRoundEditorProps {
 }
 
 function JeopardyRoundEditor(props: JeopardyRoundEditorProps) {
-  const { control } = useFormContext<Jeopardy>();
+  const { control, watch } = useFormContext<Jeopardy>();
 
   const fieldArray = useFieldArray({
     control,
@@ -195,10 +202,53 @@ function JeopardyRoundEditor(props: JeopardyRoundEditorProps) {
     [fieldArray.append],
   );
 
+  const dailyDoubleQuestionsIds =
+    watch(`${props.round}.settings.dailyDoubleQuestions`) ?? [];
+  const categories = fieldArray.fields;
+
+  const [showDailyDouble, setShowDailyDouble] = useState(false);
+
+  const dailyDoubleQuestions = useMemo(() => {
+    return dailyDoubleQuestionsIds.map((id) => {
+      for (const categoryIndex in categories) {
+        const category = categories[categoryIndex];
+
+        const questionIndex = category.questions.findIndex(
+          (question) => question.id === id,
+        );
+
+        if (questionIndex === -1) {
+          continue;
+        }
+
+        const question = category.questions[questionIndex];
+
+        if (!question) {
+          continue;
+        }
+
+        console.log(question);
+
+        return {
+          categoryName: category.title
+            ? category.title
+            : `Category #${categoryIndex + 1}`,
+          questionName: `${getPrizeAmount(
+            props.round,
+            questionIndex,
+          )} Question`,
+          question,
+        };
+      }
+    });
+  }, [props.round, categories, dailyDoubleQuestionsIds]);
+
+  console.log(dailyDoubleQuestions);
+
   return (
     <>
-      <div className="flex items-center justify-between">
-        <h2 id={props.round} className="text-2xl font-bold">
+      <div className="flex items-center gap-2">
+        <h2 id={props.round} className="text-2xl font-bold flex-1">
           {props.round === "roundOne"
             ? "Round One (Jeopardy)"
             : "Round Two (Double Jeopardy)"}
@@ -206,7 +256,46 @@ function JeopardyRoundEditor(props: JeopardyRoundEditorProps) {
         <Button $variant="outline" onClick={addCategory} type="button">
           Add Category
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button $variant="outline" type="button">
+              <FontAwesomeIcon icon={faEllipsisV} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => setShowDailyDouble(true)}>
+              View Daily Double Questions
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+      <Dialog open={showDailyDouble} onOpenChange={setShowDailyDouble}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Daily Double Questions</DialogTitle>
+          </DialogHeader>
+          <DialogDescription>
+            {dailyDoubleQuestions.length === 0 ? (
+              "No daily double questions"
+            ) : (
+              <ul>
+                {dailyDoubleQuestions.map((ddq) => {
+                  if (!ddq) return null;
+                  return (
+                    <li key={ddq.question.id}>
+                      <Label>
+                        {ddq.categoryName} - {ddq.questionName}
+                      </Label>
+                      <br />
+                      <span>{ddq.question.clue}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </DialogDescription>
+        </DialogContent>
+      </Dialog>
       {fieldArray.fields.map((field, index) => (
         <JeopardyCategoryEditor
           key={field.id}
@@ -231,6 +320,7 @@ function JeopardyCategoryEditor(props: JeopardyCategoryEditorProps) {
   const fieldArray = useFieldArray({
     control,
     name: `${props.name}.questions`,
+    keyName: "_id",
   });
 
   const id = watch(`${props.name}.id`);
@@ -363,13 +453,11 @@ interface JeopardyCategoryQuestionEditorProps {
 
 const BASE_PRIZE_AMOUNTS = [200, 400, 600, 800, 1000] as const;
 
-function getPrizeAmount(
-  name: `${"roundOne" | "roundTwo"}.categories.${number}.questions.${number}`,
-  sortIndex: number,
-) {
-  const breakName = name.split(".");
-  const round = breakName[0] as "roundOne" | "roundTwo";
+function getRound(name: `${"roundOne" | "roundTwo"}.${string}`) {
+  return name.split(".")[0] as "roundOne" | "roundTwo";
+}
 
+function getPrizeAmount(round: "roundOne" | "roundTwo", sortIndex: number) {
   let prizeAmount: number | undefined = BASE_PRIZE_AMOUNTS[sortIndex];
 
   if (!prizeAmount) {
@@ -386,11 +474,16 @@ function getPrizeAmount(
 function JeopardyCategoryQuestionEditor(
   props: JeopardyCategoryQuestionEditorProps,
 ) {
-  const { watch } = useFormContext<Jeopardy>();
+  const { watch, getValues, setValue } = useFormContext<Jeopardy>();
 
   const prizeAmount = useMemo(
-    () => getPrizeAmount(props.name, props.sortIndex),
+    () => getPrizeAmount(getRound(props.name), props.sortIndex),
     [props.name, props.sortIndex],
+  );
+
+  const round = useMemo(
+    () => props.name.split(".")[0] as "roundOne" | "roundTwo",
+    [props.name],
   );
 
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -411,6 +504,27 @@ function JeopardyCategoryQuestionEditor(
     zIndex: isDragging ? 10 : undefined,
   } satisfies React.CSSProperties;
 
+  const isDailyDouble =
+    watch(`${round}.settings.dailyDoubleQuestions`)?.includes(props.id) ??
+    false;
+
+  const toggleDailyDouble = useCallback(() => {
+    const dailyDoubleQuestions =
+      getValues(`${round}.settings.dailyDoubleQuestions`) ?? [];
+
+    if (dailyDoubleQuestions?.includes(props.id)) {
+      setValue(
+        `${round}.settings.dailyDoubleQuestions`,
+        dailyDoubleQuestions.filter((id) => id !== props.id),
+      );
+    } else {
+      setValue(`${round}.settings.dailyDoubleQuestions`, [
+        ...dailyDoubleQuestions,
+        props.id,
+      ]);
+    }
+  }, [round, props.id, getValues, setValue]);
+
   return (
     <fieldset
       ref={setNodeRef}
@@ -429,7 +543,14 @@ function JeopardyCategoryQuestionEditor(
           <FontAwesomeIcon icon={faGripVertical} />
         </Button>
         <span className="px-4 border border-l-0 border-border grid place-content-center">
-          {prizeAmount} Question
+          <span className="flex items-center gap-2">
+            {prizeAmount} Question
+            {isDailyDouble ? (
+              <span className="bg-primary text-primary-foreground text-xs font-semibold uppercase tracking-wide rounded-full px-2">
+                Daily Double
+              </span>
+            ) : null}
+          </span>
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -442,6 +563,9 @@ function JeopardyCategoryQuestionEditor(
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
+            <DropdownMenuItem onClick={toggleDailyDouble}>
+              Toggle Daily Daily Double
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setPreviewOpen(true)}>
               Preview Question Clue Card
             </DropdownMenuItem>
