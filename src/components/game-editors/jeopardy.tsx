@@ -8,7 +8,7 @@ import {
 } from "react-hook-form";
 import { type Jeopardy, jeopardySchema } from "~/schemas/games/jeopardy";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "../ui/form";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "../ui/button";
 import { createId } from "@paralleldrive/cuid2";
 import { Input } from "../ui/input";
@@ -41,15 +41,20 @@ import {
   restrictToParentElement,
   restrictToVerticalAxis,
 } from "@dnd-kit/modifiers";
+import { db } from "~/libs/db";
+import { JeopardyClue } from "../game-runner/jeopardy/clue";
+import { Dialog, DialogContent, DialogDescription } from "../ui/dialog";
+import { JeopardyCategory } from "../game-runner/jeopardy/category";
 
 interface JeopardyGameEditorProps {
-  game: Jeopardy;
+  gameId: string;
+  data: Jeopardy;
 }
 
 function JeopardyGameEditor(props: JeopardyGameEditorProps) {
   const form = useForm<Jeopardy>({
     resolver: zodResolver(jeopardySchema),
-    defaultValues: props.game,
+    defaultValues: props.data,
     mode: "onBlur",
   });
 
@@ -66,7 +71,7 @@ function JeopardyGameEditor(props: JeopardyGameEditorProps) {
   return (
     <Form {...form}>
       <div className="grid grid-cols-[280px_1fr] gap-8">
-        <JeopardyTableOfContents />
+        <JeopardyTableOfContents gameId={props.gameId} />
         <form
           onSubmit={form.handleSubmit(onSubmit, onSubmitError)}
           className="space-y-8"
@@ -83,62 +88,83 @@ function JeopardyGameEditor(props: JeopardyGameEditorProps) {
   );
 }
 
-function JeopardyTableOfContents() {
-  const { watch } = useFormContext<Jeopardy>();
+interface JeopardyTableOfContentsProps {
+  gameId: string;
+}
+
+function JeopardyTableOfContents(props: JeopardyTableOfContentsProps) {
+  const { watch, getValues } = useFormContext<Jeopardy>();
+
+  const onSave = useCallback(async () => {
+    const data = getValues();
+
+    await db.games.update(props.gameId, {
+      data,
+      lastModified: new Date(),
+    });
+  }, [props.gameId, getValues]);
 
   const roundOne = watch("roundOne.categories");
   const roundTwo = watch("roundTwo.categories");
 
   return (
     <div>
-      <ul className="border border-border p-4 rounded sticky top-8">
-        <li>
-          <Button $variant="link" $size="sm" asChild>
-            <a href="#navigation-top">Back to Top</a>
+      <div className="space-y-4 sticky top-8">
+        <div className="border border-border p-4 rounded">
+          <Button type="button" onClick={onSave}>
+            Save
           </Button>
-        </li>
-        <li>
-          <Button $variant="link" $size="sm" asChild>
-            <a href="#roundOne">Round One</a>
-          </Button>
-          <ul className="pl-4">
-            {roundOne.map((category, index) => (
-              <li key={category.id}>
-                <Button $variant="link" $size="sm" asChild>
-                  <a href={`#${category.id}`}>
-                    {category.title === ""
-                      ? `Category #${index + 1}`
-                      : category.title}
-                  </a>
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </li>
-        <li>
-          <Button $variant="link" $size="sm" asChild>
-            <a href="#roundTwo">Round Two</a>
-          </Button>
-          <ul className="pl-4">
-            {roundTwo.map((category, index) => (
-              <li key={category.id}>
-                <Button $variant="link" $size="sm" asChild>
-                  <a href={`#${category.id}`}>
-                    {category.title === ""
-                      ? `Category #${index + 1}`
-                      : category.title}
-                  </a>
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </li>
-        <li>
-          <Button type="button" $variant="link" $size="sm" asChild>
-            <a href="#finalJeopardy">Final Jeopardy</a>
-          </Button>
-        </li>
-      </ul>
+        </div>
+
+        <ul className="border border-border p-4 rounded">
+          <li>
+            <Button $variant="link" $size="sm" asChild>
+              <a href="#navigation-top">Back to Top</a>
+            </Button>
+          </li>
+          <li>
+            <Button $variant="link" $size="sm" asChild>
+              <a href="#roundOne">Round One</a>
+            </Button>
+            <ul className="pl-4">
+              {roundOne.map((category, index) => (
+                <li key={category.id}>
+                  <Button $variant="link" $size="sm" asChild>
+                    <a href={`#${category.id}`}>
+                      {category.title === ""
+                        ? `Category #${index + 1}`
+                        : category.title}
+                    </a>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </li>
+          <li>
+            <Button $variant="link" $size="sm" asChild>
+              <a href="#roundTwo">Round Two</a>
+            </Button>
+            <ul className="pl-4">
+              {roundTwo.map((category, index) => (
+                <li key={category.id}>
+                  <Button $variant="link" $size="sm" asChild>
+                    <a href={`#${category.id}`}>
+                      {category.title === ""
+                        ? `Category #${index + 1}`
+                        : category.title}
+                    </a>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </li>
+          <li>
+            <Button type="button" $variant="link" $size="sm" asChild>
+              <a href="#finalJeopardy">Final Jeopardy</a>
+            </Button>
+          </li>
+        </ul>
+      </div>
     </div>
   );
 }
@@ -209,6 +235,8 @@ function JeopardyCategoryEditor(props: JeopardyCategoryEditorProps) {
 
   const id = watch(`${props.name}.id`);
 
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   const addQuestion = useCallback(
     () =>
       fieldArray.append({
@@ -263,6 +291,7 @@ function JeopardyCategoryEditor(props: JeopardyCategoryEditorProps) {
               <FormControl>
                 <Input
                   {...field}
+                  autoComplete="off"
                   placeholder={`Category #${props.sortIndex + 1}`}
                   className="rounded-r-none"
                 />
@@ -281,13 +310,22 @@ function JeopardyCategoryEditor(props: JeopardyCategoryEditorProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem>Preview Title Card</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setPreviewOpen(true)}>
+              Preview Title Card
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={props.onDeleteCategory}>
               Delete Category
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </legend>
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-[95vmin] aspect-video">
+          <DialogDescription>
+            <JeopardyCategory category={watch(`${props.name}.title`)} />
+          </DialogDescription>
+        </DialogContent>
+      </Dialog>
       <DndContext
         sensors={sensors}
         modifiers={[restrictToVerticalAxis, restrictToParentElement]}
@@ -348,10 +386,14 @@ function getPrizeAmount(
 function JeopardyCategoryQuestionEditor(
   props: JeopardyCategoryQuestionEditorProps,
 ) {
+  const { watch } = useFormContext<Jeopardy>();
+
   const prizeAmount = useMemo(
     () => getPrizeAmount(props.name, props.sortIndex),
     [props.name, props.sortIndex],
   );
+
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const {
     attributes,
@@ -400,13 +442,22 @@ function JeopardyCategoryQuestionEditor(
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem>Preview Question Clue Card</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setPreviewOpen(true)}>
+              Preview Question Clue Card
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={props.onDeleteQuestion}>
               Delete Question
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </legend>
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-[95vmin] aspect-video">
+          <DialogDescription>
+            <JeopardyClue clue={watch(`${props.name}.clue`)} />
+          </DialogDescription>
+        </DialogContent>
+      </Dialog>
       <JeopardyQuestionEditor name={`${props.name}`} />
     </fieldset>
   );
@@ -453,7 +504,7 @@ function JeopardyQuestionEditor(props: JeopardyQuestionEditorProps) {
           <FormItem>
             <FormLabel>Answer</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input {...field} autoComplete="off" />
             </FormControl>
           </FormItem>
         )}

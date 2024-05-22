@@ -15,10 +15,7 @@ const jeopardyCategorySchema = z.object({
 
 const jeopardyRoundSchema = z.object({
   settings: z.object({
-    dailyDoubleAnwsers: z
-      .array(z.literal("random").or(z.string()))
-      .optional()
-      .default(["random", "random"]),
+    dailyDoubleQuestions: z.array(z.string()).optional(),
   }),
   categories: z.array(jeopardyCategorySchema).length(6),
 });
@@ -44,7 +41,7 @@ function makeBlankJeopardyGame(): Jeopardy {
         })),
       })),
       settings: {
-        dailyDoubleAnwsers: ["random", "random"],
+        dailyDoubleQuestions: [],
       },
     },
     roundTwo: {
@@ -58,7 +55,7 @@ function makeBlankJeopardyGame(): Jeopardy {
         })),
       })),
       settings: {
-        dailyDoubleAnwsers: ["random", "random"],
+        dailyDoubleQuestions: [],
       },
     },
     finalJeopardy: {

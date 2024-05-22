@@ -4,6 +4,7 @@ import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { routeTree } from "./route-tree.gen";
 
 import "./index.css";
+import "unfonts.css";
 import { TooltipProvider } from "./components/ui/tooltip";
 
 // Create a new router instance

@@ -27,7 +27,7 @@
       enable = true;
       previews = {
         web = {
-          command = ["pnpm" "run" "dev" "--" "--port" "$PORT" "--host" "0.0.0.0"];
+          command = ["pnpm" "run" "dev" "--port" "$PORT" "--host" "0.0.0.0"];
           manager = "web";
         };
       };

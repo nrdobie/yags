@@ -24,8 +24,10 @@ export const Route = createLazyFileRoute("/games/$gameId")({
 function GamePage() {
   const game = Route.useLoaderData();
 
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-  const GameEditor = useMemo<React.ComponentType<{ game: any }>>(() => {
+  const GameEditor = useMemo<
+    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+    React.ComponentType<{ gameId: string; data: any }>
+  >(() => {
     switch (game.type) {
       case GameType.Jeopardy:
         return JeopardyGameEditor;
@@ -64,7 +66,7 @@ function GamePage() {
           </DropdownMenu>
         </div>
       </div>
-      <GameEditor game={game.data} />
+      <GameEditor gameId={game.id} data={game.data} />
     </>
   );
 }
