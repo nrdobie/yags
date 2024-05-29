@@ -52,6 +52,15 @@ import {
 } from "../ui/dialog";
 import { JeopardyCategory } from "../game-runner/jeopardy/category";
 import { Label } from "../ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 
 interface JeopardyGameEditorProps {
   gameId: string;
@@ -181,7 +190,7 @@ interface JeopardyRoundEditorProps {
 }
 
 function JeopardyRoundEditor(props: JeopardyRoundEditorProps) {
-  const { control, watch } = useFormContext<Jeopardy>();
+  const { control, watch, setValue } = useFormContext<Jeopardy>();
 
   const fieldArray = useFieldArray({
     control,
@@ -232,7 +241,7 @@ function JeopardyRoundEditor(props: JeopardyRoundEditorProps) {
         return {
           categoryName: category.title
             ? category.title
-            : `Category #${categoryIndex + 1}`,
+            : `Category #${+categoryIndex + 1}`,
           questionName: `${getPrizeAmount(
             props.round,
             questionIndex,
@@ -242,6 +251,30 @@ function JeopardyRoundEditor(props: JeopardyRoundEditorProps) {
       }
     });
   }, [props.round, categories, dailyDoubleQuestionsIds]);
+
+  const removeDailyDoubleQuestion = useCallback(
+    (questionId: string) => {
+      setValue(
+        `${props.round}.settings.dailyDoubleQuestions`,
+        dailyDoubleQuestionsIds.filter((id) => id !== questionId),
+      );
+    },
+    [props.round, dailyDoubleQuestionsIds, setValue],
+  );
+
+  const addDailyDoubleQuestion = useCallback(
+    (questionId: string) => {
+      if (dailyDoubleQuestionsIds.includes(questionId)) {
+        return;
+      }
+
+      setValue(`${props.round}.settings.dailyDoubleQuestions`, [
+        ...dailyDoubleQuestionsIds,
+        questionId,
+      ]);
+    },
+    [props.round, dailyDoubleQuestionsIds, setValue],
+  );
 
   console.log(dailyDoubleQuestions);
 
@@ -283,16 +316,62 @@ function JeopardyRoundEditor(props: JeopardyRoundEditorProps) {
                   if (!ddq) return null;
                   return (
                     <li key={ddq.question.id}>
-                      <Label>
-                        {ddq.categoryName} - {ddq.questionName}
-                      </Label>
-                      <br />
+                      <div className="flex justify-between items-center">
+                        <Label>
+                          {ddq.categoryName} - {ddq.questionName}
+                        </Label>
+                        <button
+                          type="button"
+                          className="text-destructive hover:underline focus:underline"
+                          onClick={() =>
+                            removeDailyDoubleQuestion(ddq.question.id)
+                          }
+                        >
+                          Remove Question
+                        </button>
+                      </div>
                       <span>{ddq.question.clue}</span>
                     </li>
                   );
                 })}
               </ul>
             )}
+            <div className="flex flex-col gap-2 mt-4">
+              <Label>Add Question</Label>
+              <Select
+                value=""
+                onValueChange={(value) => addDailyDoubleQuestion(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Question" />
+                </SelectTrigger>
+                <SelectContent>
+                  {fieldArray.fields.map((field, categoryIndex) => (
+                    <SelectGroup key={field.id}>
+                      <SelectLabel>
+                        {field.title === ""
+                          ? `Category #${categoryIndex + 1}`
+                          : field.title}
+                      </SelectLabel>
+                      {field.questions.map((question, questionIndex) => {
+                        if (dailyDoubleQuestionsIds.includes(question.id)) {
+                          return null;
+                        }
+
+                        return (
+                          <SelectItem key={question.id} value={question.id}>
+                            {field.title === ""
+                              ? `Category #${categoryIndex + 1}`
+                              : field.title}{" "}
+                            {getPrizeAmount(props.round, questionIndex)}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </DialogDescription>
         </DialogContent>
       </Dialog>
